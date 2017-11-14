@@ -29,88 +29,64 @@
 #define TONODEID      1   // Destination node ID (0 to 254, 255 = broadcast)
 #define FREQUENCY     RF69_915MHZ
 #define USEACK        true
-#define ALARM         6
 
-int soundAlarm = 0;
-int activateCutdown = 0;
-unsigned long lastPacket = 0;
+#define SIGNATURE     (uint8_t) 0b101011   // Signature to check for confirmation
+#define FLAG_ALARM    (uint8_t) 0  // The bit for the alarm toggle
+#define FLAG_CUTDOWN  (uint8_t) 1  // The bit for the cutdown toggle
+
+#define CUTDOWN_PIN   7
+#define ALARM_PIN     6
+
+#define WAIT_DELAY    750 // If a response is not received within 750ms of a response, we cut off
 
 RFM69 radio;
 
-
-//pin 7 sends cutdown signal to balloon
-int trigger_out = 7;
-int cutdown_trys = 0;
-
 void setup() {
+    pinMode(ALARM_PIN, OUTPUT);
+    digitalWrite(ALARM_PIN, LOW);
 
-  pinMode(ALARM, OUTPUT);
-  
-  
-  pinMode(trigger_out, OUTPUT);
-  digitalWrite(trigger_out, LOW);
-  Serial.begin(9600);
-  Serial.println("Balloon cutdown!");
+    pinMode(CUTDOWN_PIN, OUTPUT);
+    digitalWrite(CUTDOWN_PIN, LOW);
 
-  radio.initialize(FREQUENCY, MYNODEID, NETWORKID);
-  radio.setHighPower(); // Always use this for RFM69HCW
-  
-  
+    Serial.begin(9600);
+    Serial.println("Starting cutdown system");
+
+    radio.initialize(FREQUENCY, MYNODEID, NETWORKID);
+    radio.setHighPower(); // Always use this for RFM69HCW
 }
 
+int cutdown = 0;
+int alarm = 0;
+uint8_t packet = 0;
 
+void loop() {
+    cutdown = 0;
+    alarm = 0;
 
-uint32_t timer = millis();
-uint32_t starttimer = millis();
+    if (radio.receiveDone()) {
+        if (radio.DATALEN == 1) {
+            packet = (uint8_t) radio.DATA[0];
 
-void loop() {   
-  
-  if (radio.receiveDone()) // Got one!
-  {
-   
-    // The actual message is contained in the DATA array,
-    // and is DATALEN bytes in size:
-    Serial.println("Received packet");
-    Serial.println(radio.DATA[0]);
-    Serial.println(radio.DATA[1]);
+            if (packet >> 2 == SIGNATURE) {
+                Serial.println("Received packet.");
 
-    if (radio.DATALEN == 2) {
-      activateCutdown = (int)radio.DATA[0];
-      soundAlarm = (int)radio.DATA[1];
-      lastPacket = millis();
+                // Acknowledge it
+                if (radio.ACKRequested())
+                    radio.sendACK();
+
+                Serial.println(radio.DATA[0]);
+
+                if (packet & (1 << FLAG_ALARM) != 0)
+                    alarm = 1;
+
+                if (packet & (1 << FLAG_CUTDOWN) != 0)
+                    cutdown = 1;
+            }
+        }
     }
 
-    // Send an ACK if requested.
-    // (You don't need this code if you're not using ACKs.)
-    
-    if (radio.ACKRequested())
-    {
-      radio.sendACK();
-    }
-  }
+    digitalWrite(ALARM_PIN, alarm ? HIGH : LOW);
+    digitalWrite(CUTDOWN_PIN, cutdown ? HIGH : LOW);
 
-  if (lastPacket < millis() - 2000) {
-    activateCutdown = 0;
-    soundAlarm = 0;
-  }
-
-  if (soundAlarm) {
-    digitalWrite(ALARM, HIGH);
-  } else {
-    digitalWrite(ALARM, LOW);
-  }
-
-  //if((millis() - starttimer > 15000) || activateCutdown){
-  if (activateCutdown) {
-    digitalWrite(trigger_out, HIGH);
-    delay(5000);
-    Serial.println("Cutdown");
-    Serial.println("Attempt");
-    Serial.println(cutdown_trys);
-    cutdown_trys = cutdown_trys + 1;
-    digitalWrite(trigger_out, LOW);
-  }
+    delay(WAIT_DELAY);
 }
-      
-      
-
