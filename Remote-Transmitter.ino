@@ -27,116 +27,67 @@
 #define NETWORKID     0   // Must be the same for all nodes (0 to 255)
 #define MYNODEID      1   // My node ID (0 to 255)
 #define TONODEID      2   // Destination node ID (0 to 254, 255 = broadcast)
-
-// RFM69 frequency, uncomment the frequency of your module:
-
-//#define FREQUENCY   RF69_433MHZ
 #define FREQUENCY     RF69_915MHZ
+#define USEACK        true
 
-// Use ACKnowledge when sending messages (or not):
+#define SIGNATURE     (uint8_t) 0b101011   // Signature to check for confirmation
+#define FLAG_ALARM    (uint8_t) 0  // The bit for the alarm toggle
+#define FLAG_CUTDOWN  (uint8_t) 1  // The bit for the cutdown toggle
 
-#define USEACK        true // Request ACKs or not
+// How long should we delay between two messages?
+#define SEND_DELAY    500
 
-// Setup toggle switches and LED:
-
-#define CUTDOWN           6
-#define ALARM             7
-#define LED               8
+#define CUTDOWN       6
+#define ALARM         7
+#define LED           8
 
 // Create a library object for our RFM69HCW module:
-
 RFM69 radio;
 
-void setup()
-{
-  // Open a serial port:
-  
-  Serial.begin(9600);
-  Serial.print("Node ");
-  Serial.print(MYNODEID,DEC);
-  Serial.println(" ready");  
+void setup() {
+    Serial.begin(9600);
+    Serial.print("Node ");
+    Serial.print(MYNODEID,DEC);
+    Serial.println(" ready");
 
-  // Set up the toggle switches and LED:
-  
-  pinMode(CUTDOWN, INPUT_PULLUP);
-  pinMode(ALARM, INPUT_PULLUP);
-  pinMode(LED, OUTPUT);
-    
-  // Initialize the RFM69HCW:
-  
-  radio.initialize(FREQUENCY, MYNODEID, NETWORKID);
-  radio.setHighPower(); // Always use this for RFM69HCW
+    // Set up the toggle switches and LED:
+    pinMode(CUTDOWN, INPUT_PULLUP);
+    pinMode(ALARM, INPUT_PULLUP);
+    pinMode(LED, OUTPUT);
+
+    // Initialize the RFM69HCW:
+    radio.initialize(FREQUENCY, MYNODEID, NETWORKID);
+    radio.setHighPower(); // Always use this for RFM69HCW
 
 }
 
-void loop()
-{
-  // Set up a "buffer" for characters that we'll send:
-  
-  static char sendbuffer[2];
-  static int sendlength = 2;
+uint8_t packet = 0;
+void loop() {
+    // SENDING
+    // In this section, we'll gather toggle switch inputs
+    // and send a single byte containing our signature and
+    // the states of the two toggles
 
-  // SENDING
+    packet = SIGNATURE << 2;
 
-  // In this section, we'll gather toggle switch inputs
-  // and send two chars to the receiver on the payload. 
-  // The first char is a boolean for activating the cutdown
-  // circuit, and the second char is a boolean for
-  // activating the alarm. The LED flahses to indicate the
-  // transmission was received
-  
-  int cutValue = digitalRead(CUTDOWN);
-  int alarmValue = digitalRead(ALARM);
+    if (digitalRead(CUTDOWN))
+        packet |= 1 << FLAG_CUTDOWN;
 
-  if (cutValue || alarmValue)
-  {
+    if (digitalRead(ALARM))
+        packet |= 1 << FLAG_ALARM;
 
-    if (cutValue) {
-      sendbuffer[0] = '0';
-    } else {
-      sendbuffer[0] = '1';
-    }
-
-    if (alarmValue) {
-      sendbuffer[1] = '0';
-    } else {
-      sendbuffer[1] = '1';
-    }
-
-    // Send the packet!
-
-
-    Serial.print("sending to node ");
-    Serial.print(TONODEID, DEC);
-    Serial.print(": [");
-    for (byte i = 0; i < sendlength; i++)
-      Serial.print(sendbuffer[i]);
-    Serial.println("]");
-      
     // There are two ways to send packets. If you want
     // acknowledgements, use sendWithRetry():
-      
     if (USEACK)
     {
-      if (radio.sendWithRetry(TONODEID, sendbuffer, sendlength)) {
-        Serial.println("ACK received!");
-        digitalWrite(LED, HIGH);
-        // Wait 1 second before transmitting
-        delay(1000);
-        digitalWrite(LED, LOW);
-      } else {
-        Serial.println("no ACK received :(");
-      }
+        if (radio.sendWithRetry(TONODEID, &packet, 1, 0)) {
+            digitalWrite(LED, HIGH); // Leave it on until the next packet
+        } else {
+            digitalWrite(LED, LOW);
+        }
+    } else {
+        radio.send(TONODEID, &packet, 1);
     }
 
-    // If you don't need acknowledgements, just use send():
-      
-    else // don't use ACK
-    {
-      radio.send(TONODEID, sendbuffer, sendlength);
-    }
-  }
-  
+    delay(SEND_DELAY);
 }
-
-
