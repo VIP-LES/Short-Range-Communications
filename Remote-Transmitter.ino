@@ -70,10 +70,10 @@ void loop() {
 
     packet = SIGNATURE << 2;
 
-    if (digitalRead(CUTDOWN))
+    if (!digitalRead(CUTDOWN))
         packet |= 1 << FLAG_CUTDOWN;
 
-    if (digitalRead(ALARM))
+    if (!digitalRead(ALARM))
         packet |= 1 << FLAG_ALARM;
 
     // There are two ways to send packets. If you want
