@@ -55,8 +55,8 @@ void setup() {
     radio.setHighPower(); // Always use this for RFM69HCW
 }
 
-long last_receipt = millis();
-long current_time = millis();
+unsigned long last_receipt = millis();
+unsigned long current_time = millis();
 
 int cutdown = 0;
 int alarm = 0;
