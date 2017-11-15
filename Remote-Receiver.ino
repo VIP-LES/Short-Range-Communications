@@ -55,20 +55,23 @@ void setup() {
     radio.setHighPower(); // Always use this for RFM69HCW
 }
 
+long last_receipt = millis();
+long current_time = millis();
+
 int cutdown = 0;
 int alarm = 0;
 uint8_t packet = 0;
 
 void loop() {
-    cutdown = 0;
-    alarm = 0;
-
+    current_time = millis();
     if (radio.receiveDone()) {
         if (radio.DATALEN == 1) {
             packet = (uint8_t) radio.DATA[0];
 
             if (packet >> 2 == SIGNATURE) {
                 Serial.println("Received packet.");
+
+                last_receipt = current_time;
 
                 // Acknowledge it
                 if (radio.ACKRequested())
@@ -78,15 +81,22 @@ void loop() {
 
                 if (packet & (1 << FLAG_ALARM) != 0)
                     alarm = 1;
+                else
+                    alarm = 0;
 
                 if (packet & (1 << FLAG_CUTDOWN) != 0)
                     cutdown = 1;
+                else
+                    cutdown = 0;
             }
         }
     }
 
+    if (current_time - last_receipt > WAIT_DELAY) {
+        alarm = 0;
+        cutdown = 0;
+    }
+
     digitalWrite(ALARM_PIN, alarm ? HIGH : LOW);
     digitalWrite(CUTDOWN_PIN, cutdown ? HIGH : LOW);
-
-    delay(WAIT_DELAY);
 }
