@@ -38,7 +38,7 @@
 #define SEND_DELAY    500
 
 #define CUTDOWN       6
-#define ALARM         7
+#define ALARM         5
 #define LED           8
 
 // Create a library object for our RFM69HCW module:
