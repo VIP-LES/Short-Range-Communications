@@ -46,7 +46,7 @@ void setup() {
     digitalWrite(ALARM_PIN, LOW);
 
     pinMode(CUTDOWN_PIN, OUTPUT);
-    digitalWrite(CUTDOWN_PIN, LOW);
+    digitalWrite(CUTDOWN_PIN, HIGH);
 
     Serial.begin(9600);
     Serial.println("Starting cutdown system");
@@ -98,5 +98,5 @@ void loop() {
     }
 
     digitalWrite(ALARM_PIN, alarm ? HIGH : LOW);
-    digitalWrite(CUTDOWN_PIN, cutdown ? HIGH : LOW);
+    digitalWrite(CUTDOWN_PIN, cutdown ? LOW : HIGH);
 }
