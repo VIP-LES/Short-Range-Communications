@@ -79,12 +79,12 @@ void loop() {
 
                 Serial.println(radio.DATA[0]);
 
-                if (packet & (1 << FLAG_ALARM) != 0)
+                if ((packet & (1 << FLAG_ALARM)) != 0)
                     alarm = 1;
                 else
                     alarm = 0;
 
-                if (packet & (1 << FLAG_CUTDOWN) != 0)
+                if ((packet & (1 << FLAG_CUTDOWN)) != 0)
                     cutdown = 1;
                 else
                     cutdown = 0;
